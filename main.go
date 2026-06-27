@@ -134,7 +134,7 @@ func doUpdate(logger *logrus.Logger, url string) error {
 }
 
 func main() {
-	baseURL := "https://files.muximba.dev/client/"
+	baseURL := "https://files.muximba.dev/"
 	executable, err := os.Executable()
 	if err != nil {
 		fmt.Printf("Failed to get executable path: %v", err)

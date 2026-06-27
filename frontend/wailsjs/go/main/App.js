@@ -34,6 +34,10 @@ export function NeedsUpdate() {
   return window['go']['main']['App']['NeedsUpdate']();
 }
 
+export function News() {
+  return window['go']['main']['App']['News']();
+}
+
 export function OS() {
   return window['go']['main']['App']['OS']();
 }
@@ -48,6 +52,10 @@ export function Play(arg1) {
 
 export function Revision() {
   return window['go']['main']['App']['Revision']();
+}
+
+export function ServerStatus() {
+  return window['go']['main']['App']['ServerStatus']();
 }
 
 export function ToggleLocal(arg1) {

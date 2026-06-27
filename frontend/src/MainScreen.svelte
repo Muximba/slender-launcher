@@ -9,8 +9,10 @@
     DownloadedFiles,
     LocalEnabled,
     NeedsUpdate,
+    News,
     Play,
     Revision,
+    ServerStatus,
     TotalBytes,
     TotalFiles,
     Update,
@@ -30,6 +32,10 @@
   let ready: boolean = false;
   let needsUpdate: boolean = false;
 
+  let serverOnline: boolean = false;
+  let playersOnline: number = 0;
+  let news: { date: string; title: string; content: string }[] = [];
+
   let progress: number = 0;
   let totalFiles: number = 0;
   let totalBytes: number = 0;
@@ -47,6 +53,18 @@
     needsUpdate = await NeedsUpdate();
     ready = true;
     hasLocal = await LocalEnabled();
+
+    const status = await ServerStatus();
+    serverOnline = status.online;
+    playersOnline = status.playersOnline;
+    news = await News();
+
+    // atualiza o status do servidor a cada 30s
+    setInterval(async () => {
+      const s = await ServerStatus();
+      serverOnline = s.online;
+      playersOnline = s.playersOnline;
+    }, 30000);
   });
 
   function update() {
@@ -144,6 +162,14 @@
 </button>
 <div>
   <img alt="Logo" id="logo" src={logo} />
+  <div class="server-status">
+    <span class="dot" class:online={serverOnline}></span>
+    {#if serverOnline}
+      {playersOnline} players online
+    {:else}
+      Server offline
+    {/if}
+  </div>
   <div class="actions">
     <div>
       <h3>Play</h3>
@@ -206,6 +232,17 @@
       </button>
     </div>
   </div>
+
+  {#if news.length}
+    <div class="news">
+      {#each news.slice(0, 3) as item}
+        <div class="news-item">
+          <strong>{item.title}</strong>
+          <span class="news-date">{item.date}</span>
+        </div>
+      {/each}
+    </div>
+  {/if}
 
   {#if updating}
     <div class="progress-section">
@@ -384,5 +421,44 @@
     align-items: center;
     justify-content: center;
     box-shadow: none;
+  }
+
+  .server-status {
+    flex-direction: row;
+    gap: 8px;
+    font-size: 14px;
+    color: #cfc8bb;
+    margin: 2px 0 10px;
+  }
+  .server-status .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background-color: #d9534f;
+  }
+  .server-status .dot.online {
+    background-color: #6fbf73;
+    box-shadow: 0 0 6px #6fbf73;
+  }
+
+  .news {
+    flex-direction: column;
+    gap: 6px;
+    width: 512px;
+    margin: 12px 0;
+  }
+  .news-item {
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+    background-color: #2a2436;
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #ece3d4;
+    font-size: 13px;
+  }
+  .news-date {
+    color: #9990a6;
+    font-size: 12px;
   }
 </style>
