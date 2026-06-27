@@ -1,0 +1,81 @@
+name: Release Launcher
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    environment: client # secrets do R2 estão neste environment
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            out: Muximba
+          - runner: windows-latest
+            out: Muximba.exe
+          - runner: macos-latest
+            out: Muximba.mac
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Linux deps
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build
+        run: wails build
+
+      - name: Collect binary + sha256
+        shell: bash
+        run: |
+          mkdir -p dist
+          case "${{ runner.os }}" in
+            Linux)   cp build/bin/Muximba dist/${{ matrix.out }} ;;
+            Windows) cp build/bin/Muximba.exe dist/${{ matrix.out }} ;;
+            macOS)   cp build/bin/Muximba.app/Contents/MacOS/Muximba dist/${{ matrix.out }} ;;
+          esac
+          cd dist
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "${{ matrix.out }}" | awk '{print $1}' > "${{ matrix.out }}.sha256"
+          else
+            shasum -a 256 "${{ matrix.out }}" | awk '{print $1}' > "${{ matrix.out }}.sha256"
+          fi
+          ls -la
+
+      - name: Upload to R2 (self-update)
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          aws s3 cp "dist/${{ matrix.out }}" "s3://muximba-client/${{ matrix.out }}" --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp "dist/${{ matrix.out }}.sha256" "s3://muximba-client/${{ matrix.out }}.sha256" --endpoint-url "$R2_ENDPOINT"
+
+      - name: Publish to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/${{ matrix.out }}
+            dist/${{ matrix.out }}.sha256
