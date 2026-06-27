@@ -1,6 +1,6 @@
 module slenderlauncher
 
-go 1.18
+go 1.20
 
 require (
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf
