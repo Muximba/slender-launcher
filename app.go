@@ -198,6 +198,14 @@ func (a *App) ActiveDownload() string {
 }
 
 func (a *App) Update() {
+	// zera os contadores ANTES do filesToUpdate (que demora): senao o frontend
+	// poll-eia os valores da rodada anterior (ex: 9201/9201) e acha que ja
+	// terminou, escondendo o feedback de progresso.
+	a.totalFiles = 0
+	a.totalBytes = 0
+	a.downloadedFiles = 0
+	a.downloadedBytes = 0
+
 	files, err := a.filesToUpdate()
 	if err != nil {
 		a.logger.Errorf("Error checking for updates: %v", err)
@@ -508,7 +516,7 @@ func (a *App) Play(local bool) {
 	}
 	a.logger.Infof("Launching %s", executable)
 	os.Chmod(a.executable(), 0755)
-	if err := syscall.Exec(executable, []string{"--battleeye"}, os.Environ()); err != nil {
+	if err := syscall.Exec(executable, []string{executable, "--battleeye"}, os.Environ()); err != nil {
 		a.logger.Errorf("Failed to launch %s: %s | attempting regular fork", executable, err)
 		cmd := exec.Command(executable, "--battleeye")
 		cmd.Stdout = os.Stdout

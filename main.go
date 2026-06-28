@@ -206,8 +206,8 @@ func main() {
 
 	err = wails.Run(&options.App{
 		Title:  appName + " Launcher",
-		Width:  760,
-		Height: 440,
+		Width:  1000,
+		Height: 760,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

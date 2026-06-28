@@ -52,11 +52,16 @@
     gap: 16px;
   }
 
+  h1 {
+    text-shadow: 0 1px 5px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 0.8);
+  }
+
   label span {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     justify-content: center;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95);
   }
 
   label input {

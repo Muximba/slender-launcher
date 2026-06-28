@@ -18,6 +18,7 @@
     Update,
     Version,
   } from "../wailsjs/go/main/App.js";
+  import { BrowserOpenURL } from "../wailsjs/runtime/runtime";
   import { onMount } from "svelte";
   import PlayIcon from "./PlayIcon.svelte";
   import UpdateIcon from "./UpdateIcon.svelte";
@@ -33,8 +34,14 @@
   let needsUpdate: boolean = false;
 
   let serverOnline: boolean = false;
+  let statusLoaded: boolean = false;
   let playersOnline: number = 0;
-  let news: { date: string; title: string; content: string }[] = [];
+  let news: { date: string; title: string; content: string; url: string }[] =
+    [];
+
+  function openNews(url: string) {
+    if (url) BrowserOpenURL(url);
+  }
 
   let progress: number = 0;
   let totalFiles: number = 0;
@@ -48,16 +55,14 @@
   let hasLocal = false;
 
   onMount(async () => {
-    revision = await Revision();
-    version = await Version();
-    needsUpdate = await NeedsUpdate();
-    ready = true;
-    hasLocal = await LocalEnabled();
-
-    const status = await ServerStatus();
-    serverOnline = status.online;
-    playersOnline = status.playersOnline;
-    news = await News();
+    // status do servidor PRIMEIRO (rapido, um POST): senao o pill fica "offline"
+    // durante toda a checagem de arquivos (que e lenta).
+    ServerStatus().then((status) => {
+      serverOnline = status.online;
+      playersOnline = status.playersOnline;
+      statusLoaded = true;
+    });
+    News().then((n) => (news = n));
 
     // atualiza o status do servidor a cada 30s
     setInterval(async () => {
@@ -65,6 +70,13 @@
       serverOnline = s.online;
       playersOnline = s.playersOnline;
     }, 30000);
+
+    // depois a checagem de versao/arquivos (mais demorada)
+    revision = await Revision();
+    version = await Version();
+    needsUpdate = await NeedsUpdate();
+    ready = true;
+    hasLocal = await LocalEnabled();
   });
 
   function update() {
@@ -83,7 +95,9 @@
       activeDownload = await ActiveDownload();
       progress = await DownloadPercent();
 
-      if (downloadedFiles === totalFiles) {
+      // so considera concluido depois que a lista de arquivos foi montada
+      // (totalFiles > 0); senao 0 === 0 encerraria no 1o tick e a UI sumiria
+      if (totalFiles > 0 && downloadedFiles >= totalFiles) {
         updating = false;
         needsUpdate = false;
         clearInterval(interval);
@@ -164,7 +178,9 @@
   <img alt="Logo" id="logo" src={logo} />
   <div class="server-status">
     <span class="dot" class:online={serverOnline}></span>
-    {#if serverOnline}
+    {#if !statusLoaded}
+      connecting...
+    {:else if serverOnline}
       {playersOnline} players online
     {:else}
       Server offline
@@ -175,13 +191,21 @@
       <h3>Play</h3>
       {#if updating}
         <button class="update" disabled>
-          <div>
-            {downloadedFiles} / {totalFiles} files
-          </div>
-          <div>
-            {formatBytes(downloadedBytes)} / {formatBytes(totalBytes)}
-          </div>
+          {#if totalFiles === 0}
+            <div>Preparing...</div>
+            <div>checking files</div>
+          {:else}
+            <div>{Math.floor(progress)}% &middot; {downloadedFiles}/{totalFiles}</div>
+            <div>
+              {formatBytes(downloadedBytes)} / {formatBytes(totalBytes)}
+            </div>
+          {/if}
         </button>
+      {:else if !ready}
+        <div class="checking">
+          <div class="spinner"></div>
+          <div>Verificando arquivos...</div>
+        </div>
       {:else if needsUpdate}
         <div>
           <button class="update" on:click={update} disabled={!ready}>
@@ -235,10 +259,24 @@
 
   {#if news.length}
     <div class="news">
+      <div class="news-header">Novidades</div>
       {#each news.slice(0, 3) as item}
-        <div class="news-item">
-          <strong>{item.title}</strong>
-          <span class="news-date">{item.date}</span>
+        <div
+          class="news-item"
+          class:clickable={item.url}
+          role={item.url ? "link" : undefined}
+          on:click={() => openNews(item.url)}
+        >
+          <div class="news-head">
+            <strong>{item.title}</strong>
+            <span class="news-date">{item.date}</span>
+          </div>
+          {#if item.content}
+            <span class="news-content">{item.content}</span>
+          {/if}
+          {#if item.url}
+            <span class="news-more">ver mais →</span>
+          {/if}
         </div>
       {/each}
     </div>
@@ -380,6 +418,11 @@
     margin: 0;
     padding: 0;
     font-size: 16px;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 0.7);
+  }
+  /* texto solto (Up to date / Loading / Update available) sobre fundo claro */
+  .actions > div > div {
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
   }
 
   .maps button {
@@ -425,10 +468,17 @@
 
   .server-status {
     flex-direction: row;
+    align-items: center;
     gap: 8px;
     font-size: 14px;
-    color: #cfc8bb;
-    margin: 2px 0 10px;
+    font-weight: 600;
+    color: #f1ece1;
+    background: rgba(12, 18, 30, 0.55);
+    padding: 5px 14px;
+    border-radius: 999px;
+    margin: 6px 0 12px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   }
   .server-status .dot {
     width: 9px;
@@ -441,24 +491,95 @@
     box-shadow: 0 0 6px #6fbf73;
   }
 
+  .checking {
+    flex-direction: column;
+    gap: 8px;
+    color: #e7ddcb;
+    font-size: 13px;
+    height: 74px;
+    justify-content: center;
+  }
+  .spinner {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.18);
+    border-top-color: #6fbf73;
+    animation: mux-spin 0.8s linear infinite;
+  }
+  @keyframes mux-spin {
+    to { transform: rotate(360deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spinner { animation: none; }
+  }
+
   .news {
     flex-direction: column;
     gap: 6px;
     width: 512px;
     margin: 12px 0;
   }
-  .news-item {
+  .news-header {
     flex-direction: row;
-    justify-content: space-between;
+    align-self: flex-start;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #e7ddcb;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+    margin-bottom: 2px;
+  }
+  .news-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 3px;
     width: 100%;
-    background-color: #2a2436;
+    background-color: rgba(42, 36, 54, 0.82);
     border-radius: 6px;
     padding: 8px 12px;
     color: #ece3d4;
     font-size: 13px;
+    text-align: left;
+  }
+  .news-head {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
+  }
+  .news-head strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .news-date {
     color: #9990a6;
     font-size: 12px;
+    flex-shrink: 0;
+  }
+  .news-content {
+    color: #b3a994;
+    font-size: 12px;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .news-item.clickable {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+  .news-item.clickable:hover {
+    background-color: rgba(62, 52, 82, 0.95);
+  }
+  .news-more {
+    align-self: flex-end;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6fbf73;
   }
 </style>

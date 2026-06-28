@@ -59,6 +59,7 @@ type NewsItem struct {
 	Date    string `json:"date"`
 	Title   string `json:"title"`
 	Content string `json:"content"`
+	URL     string `json:"url"`
 }
 
 // News busca a lista de news do web service. Retorna vazio se o servidor

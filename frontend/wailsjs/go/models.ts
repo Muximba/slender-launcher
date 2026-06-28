@@ -4,6 +4,7 @@ export namespace main {
 	    date: string;
 	    title: string;
 	    content: string;
+	    url: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new NewsItem(source);
@@ -14,6 +15,7 @@ export namespace main {
 	        this.date = source["date"];
 	        this.title = source["title"];
 	        this.content = source["content"];
+	        this.url = source["url"];
 	    }
 	}
 	export class ServerStatusInfo {
