@@ -245,16 +245,7 @@
         </div>
       {/if}
     </div>
-    <div class="maps">
-      <h3>Maps</h3>
-      <div class="map-select">
-        <Select bind:justValue={mapKind} items={mapTypes} />
-      </div>
-      <button disabled={!ready || needsUpdate} on:click={downloadMaps}>
-        <DownloadIcon />
-        Download + Install Maps
-      </button>
-    </div>
+    <!-- Muximba: download de mapa removido — o minimap.otmm ja vem embutido no client (otclient nao le os PNGs da tibiamaps). -->
   </div>
 
   {#if news.length}
