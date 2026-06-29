@@ -371,14 +371,11 @@
 
   #logo {
     display: block;
-    width: 148px;
-    height: 148px;
+    width: 172px;
+    height: auto;
     margin: auto;
     padding: 3% 0 0;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
-    background-origin: content-box;
+    object-fit: contain;
   }
 
   .actions {
